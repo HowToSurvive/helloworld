@@ -1,69 +1,45 @@
-name: Build and Release
+name: 'C++ CI'
 
 on:
   push:
     branches:
-      - main
-  pull_request:
-    branches:
-      - main
-  release:
-    types: [published]
-
+      -main
+    
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - run: cmake .
+      - run: cmake --build .
+      - run: cmake --build . --target test
+      - run: cmake --build . --target package
+        — name: Create Release
+        id: create_release
+          uses: actions/create-releaseQv1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}    
+        with:
+          tag_name: ${{ github.run_number }}
+          release_name: Release ${{ github.run_number }}
+          draft: false
+          prerelease: false
 
-    - name: Set up C++
-      uses: actions/setup-cpp@v1
-      with:
-        cpp-version: '11'
+      - name: Upload Release Asset
 
-    - name: Build
-      run: |
-        mkdir build
-        cd build
-        cmake ..
-        cmake --build .
+        id: upload-release-asset
 
-    - name: Publish
-      uses: actions/upload-artifact@v2
-      with:
-        name: helloworld
-        path: build/*
+        uses: actions/upload-release-assetQv1
+  
+        env:
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+              upload_url: ${{ steps.create_release.outputs.upload_url }}
+              asset_path: ./helloworld-@.@.${{ github.run_number }}-Linux.deb
+              asset_name: helloworld-@.0.${{ github.run_number }}-Linux.deb
+      
+              asset_content_type: application/vnd.debian.binary-package
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-
-    - name: Set up GitHub Token
-      uses: actions/github-token@v1
-
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: false
-        prerelease: false
-
-    - name: Upload Artifact
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./build/*
-        asset_name: helloworld-${{ github.ref }}
-        asset_content_type: application/octet-stream
+    
